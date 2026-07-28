@@ -1,0 +1,12 @@
+{
+  "name": "DefectiveReturnStock",
+  "description": "Flow action that books defective return items out of a configured return storage location.",
+  "namespace": "DefectiveReturnStock",
+  "author": "Custom",
+  "type": "backend",
+  "version": "1.0.2",
+  "serviceProvider": "DefectiveReturnStock\\Providers\\DefectiveReturnStockServiceProvider",
+  "runOnBuild": [
+    "DefectiveReturnStock\\Migrations\\CreateProcessedReturnTable"
+  ]
+}
