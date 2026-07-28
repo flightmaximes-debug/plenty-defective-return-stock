@@ -1,0 +1,29 @@
+[
+  {
+    "tab": "Config.stockTab",
+    "key": "stock.warehouseId",
+    "label": "Config.warehouseId",
+    "type": "text",
+    "default": ""
+  },
+  {
+    "tab": "Config.stockTab",
+    "key": "stock.storageLocationId",
+    "label": "Config.storageLocationId",
+    "type": "text",
+    "default": ""
+  },
+  {
+    "tab": "Config.stockTab",
+    "key": "stock.reasonId",
+    "label": "Config.reasonId",
+    "type": "dropdown",
+    "default": "207",
+    "possibleValues": {
+      "207": "Config.reasonDefect",
+      "205": "Config.reasonRubbish",
+      "208": "Config.reasonComplaint",
+      "216": "Config.reasonCorrection"
+    }
+  }
+]
