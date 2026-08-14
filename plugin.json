@@ -1,0 +1,9 @@
+{
+  "name": "DefectiveReturnStock",
+  "description": "PlentyONE Flow action for defective return stock processing.",
+  "namespace": "DefectiveReturnStock",
+  "author": "Custom",
+  "type": "general",
+  "version": "1.3.5",
+  "serviceProvider": "DefectiveReturnStock\\Providers\\DefectiveReturnStockServiceProvider"
+}
