@@ -1,6 +1,6 @@
 # DefectiveReturnStock
 
-Aktuelle Version: `1.7.1`
+Aktuelle Version: `1.7.2`
 
 PlentyONE-Backend-Plugin für eine Flow-Aktion, die eine bereits automatisch
 eingebuchte defekte Retoure wieder aus dem Bestand entfernt.
@@ -19,8 +19,10 @@ eingebuchte defekte Retoure wieder aus dem Bestand entfernt.
   Standard-Lagerort des Lagers aus.
 - Bei Set-Artikeln werden die bestandsgeführten Komponenten verarbeitet;
   Set-Hauptpositionen werden nicht an die Bestandsfunktion gesendet.
-- Interne, für Kunden unsichtbare Auftragskommentare verhindern eine doppelte
-  Ausbuchung bei einer erneuten Flow-Ausführung.
+- Vor jeder Ausbuchung prüft das Plugin die tatsächlichen Warenbewegungen auf
+  eine bereits vorhandene Ausbuchung mit derselben Retouren-ID, Variante und
+  dem Grund `207`. Dadurch wird eine doppelte Ausbuchung verhindert, ohne eine
+  Auftragsnotiz anlegen zu müssen.
 
 ## Einrichtung
 
@@ -41,5 +43,5 @@ Es gibt keine Plugin-Konfiguration für Lager oder Lagerort. Das Lager ist auf
 
 Für einen erneuten Test ist kein neuer Auftrag und keine neue Retoure nötig.
 Eine vorhandene defekte Retoure kann den Flow erneut durchlaufen. Bereits
-erfolgreich ausgeführte Positionen werden anhand interner Kennungen erkannt
+erfolgreich ausgeführte Positionen werden anhand ihrer Warenbewegungen erkannt
 und übersprungen.
