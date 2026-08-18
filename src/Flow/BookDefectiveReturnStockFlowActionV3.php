@@ -7,6 +7,7 @@ use Plenty\Exceptions\ValidationException;
 use Plenty\Modules\Flow\Models\Filter;
 use Plenty\Modules\Flow\StepActions\Definitions\Contracts\StepActionDefinitionContract;
 use Plenty\Modules\Flow\Triggers\Objects\FlowTriggerObjectOrder;
+use Plenty\Modules\Item\VariationStock\Contracts\VariationStockRepositoryContract;
 use Plenty\Modules\Order\Contracts\OrderRepositoryContract;
 use Plenty\Modules\StockManagement\Stock\Contracts\StockRepositoryContract;
 use RuntimeException;
@@ -56,7 +57,7 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
 
     public function getDescription(): string
     {
-        return 'V3: Bucht die Retourenmenge ueber die Lagerbestands-Schnittstelle aus Lager 1 aus und prueft die physische Bestandsminderung.';
+        return 'V3: Bucht die Retourenmenge ueber die variantenbezogene Bestands-Schnittstelle aus Lager 1 aus und prueft die physische Bestandsminderung.';
     }
 
     public function getUIConfigFields(): array
@@ -116,6 +117,8 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
         $orderRepository = pluginApp(OrderRepositoryContract::class);
         /** @var StockRepositoryContract $stockRepository */
         $stockRepository = pluginApp(StockRepositoryContract::class);
+        /** @var VariationStockRepositoryContract $variationStockRepository */
+        $variationStockRepository = pluginApp(VariationStockRepositoryContract::class);
 
         $outputs = [];
         $processedInputs = 0;
@@ -173,7 +176,8 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
                     $orderId,
                     $bookingPlan,
                     $bookingMetadata,
-                    $stockRepository
+                    $stockRepository,
+                    $variationStockRepository
                 );
             }
 
@@ -277,23 +281,19 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
         int $orderId,
         array $bookingPlan,
         array $bookingMetadata,
-        StockRepositoryContract $stockRepository
+        StockRepositoryContract $stockRepository,
+        VariationStockRepositoryContract $variationStockRepository
     ): void {
         $variationId = (int) $bookingPlan['variationId'];
         $quantity = (float) $bookingPlan['quantity'];
         $bookingData = [
-            'outgoingItems' => [
-                [
-                    'variationId' => $variationId,
-                    'warehouseId' => self::WAREHOUSE_ID,
-                    'deliveredAt' => $bookingMetadata['deliveredAt'],
-                    'orderNumber' => (string) $orderId,
-                    'currency' => $bookingMetadata['currency'],
-                    'exchangeRate' => $bookingMetadata['exchangeRate'],
-                    'quantity' => $quantity,
-                    'reasonId' => self::REASON_ID_DEFECT
-                ]
-            ]
+            'warehouseId' => self::WAREHOUSE_ID,
+            'deliveredAt' => $bookingMetadata['deliveredAt'],
+            'orderNumber' => (string) $orderId,
+            'currency' => $bookingMetadata['currency'],
+            'exchangeRate' => $bookingMetadata['exchangeRate'],
+            'quantity' => $quantity,
+            'reasonId' => self::REASON_ID_DEFECT
         ];
 
         try {
@@ -302,8 +302,8 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
                 $stockRepository
             );
 
-            $stockRepository->bookOutgoingItems(
-                self::WAREHOUSE_ID,
+            $variationStockRepository->bookOutgoingItems(
+                $variationId,
                 $bookingData
             );
 
