@@ -3,13 +3,13 @@
 namespace DefectiveReturnStock\Flow;
 
 use Carbon\Carbon;
-use Plenty\Modules\Comment\Contracts\CommentRepositoryContract;
 use Plenty\Exceptions\ValidationException;
 use Plenty\Modules\Flow\Models\Filter;
 use Plenty\Modules\Flow\StepActions\Definitions\Contracts\StepActionDefinitionContract;
 use Plenty\Modules\Flow\Triggers\Objects\FlowTriggerObjectOrder;
 use Plenty\Modules\Item\VariationStock\Contracts\VariationStockRepositoryContract;
 use Plenty\Modules\Order\Contracts\OrderRepositoryContract;
+use Plenty\Modules\StockManagement\Stock\Contracts\StockRepositoryContract;
 use RuntimeException;
 
 class BookDefectiveReturnStockFlowAction extends StepActionDefinitionContract
@@ -20,7 +20,6 @@ class BookDefectiveReturnStockFlowAction extends StepActionDefinitionContract
     private const ORDER_ITEM_TYPE_SET_COMPONENT = 14;
     private const WAREHOUSE_ID = 1;
     private const REASON_ID_DEFECT = 207;
-    private const MARKER_PREFIX = 'DefectiveReturnStock V1.5:';
 
     private $flowName = '';
     private $workflowName = '';
@@ -118,8 +117,8 @@ class BookDefectiveReturnStockFlowAction extends StepActionDefinitionContract
         $orderRepository = pluginApp(OrderRepositoryContract::class);
         /** @var VariationStockRepositoryContract $variationStockRepository */
         $variationStockRepository = pluginApp(VariationStockRepositoryContract::class);
-        /** @var CommentRepositoryContract $commentRepository */
-        $commentRepository = pluginApp(CommentRepositoryContract::class);
+        /** @var StockRepositoryContract $stockRepository */
+        $stockRepository = pluginApp(StockRepositoryContract::class);
 
         $outputs = [];
         $processedInputs = 0;
@@ -131,16 +130,9 @@ class BookDefectiveReturnStockFlowAction extends StepActionDefinitionContract
                 throw new RuntimeException('Der Flow hat keine gueltige Auftrags-ID uebergeben.');
             }
 
-            $order = $orderRepository->findById($orderId, ['comments', 'amounts']);
+            $order = $orderRepository->findById($orderId, ['amounts']);
             if ((int) $order->typeId !== self::ORDER_TYPE_RETURN) {
                 throw new RuntimeException('Auftrag ' . $orderId . ' ist keine Retoure.');
-            }
-
-            $commentTexts = $this->getCommentTexts($order);
-            $successMarker = self::MARKER_PREFIX . 'DONE:' . $orderId;
-            if (in_array($successMarker, $commentTexts, true)) {
-                $outputs[] = $input;
-                continue;
             }
 
             $variationQuantities = $this->getVariationQuantities($order);
@@ -151,21 +143,20 @@ class BookDefectiveReturnStockFlowAction extends StepActionDefinitionContract
             }
 
             $bookingPlans = [];
-            $bookingMetadata = $this->getBookingMetadata($order, $orderId);
+            $bookingMetadata = $this->getBookingMetadata($order);
             foreach ($variationQuantities as $variationId => $requiredQuantity) {
-                $variationMarker = $this->getVariationMarker(
+                if ($this->hasExistingBooking(
                     $orderId,
                     (int) $variationId,
-                    (float) $requiredQuantity
-                );
-                if (in_array($variationMarker, $commentTexts, true)) {
+                    (float) $requiredQuantity,
+                    $stockRepository
+                )) {
                     continue;
                 }
 
                 $bookingPlans[] = [
                     'variationId' => (int) $variationId,
-                    'quantity' => (float) $requiredQuantity,
-                    'marker' => $variationMarker
+                    'quantity' => (float) $requiredQuantity
                 ];
             }
 
@@ -176,22 +167,7 @@ class BookDefectiveReturnStockFlowAction extends StepActionDefinitionContract
                     $bookingMetadata,
                     $variationStockRepository
                 );
-
-                $commentRepository->createComment([
-                    'referenceType' => 'order',
-                    'referenceValue' => $orderId,
-                    'text' => $bookingPlan['marker'],
-                    'isVisibleForContact' => false
-                ], true);
-                $commentTexts[] = $bookingPlan['marker'];
             }
-
-            $commentRepository->createComment([
-                'referenceType' => 'order',
-                'referenceValue' => $orderId,
-                'text' => $successMarker,
-                'isVisibleForContact' => false
-            ], true);
 
             $outputs[] = $input;
         }
@@ -234,6 +210,60 @@ class BookDefectiveReturnStockFlowAction extends StepActionDefinitionContract
         return $variationQuantities;
     }
 
+    private function hasExistingBooking(
+        int $orderId,
+        int $variationId,
+        float $requiredQuantity,
+        StockRepositoryContract $stockRepository
+    ): bool {
+        try {
+            $stockRepository->setFilters([
+                'variationId' => $variationId,
+                'orderId' => $orderId,
+                'processRowType' => 2
+            ]);
+
+            $movements = $stockRepository->listStockMovements(
+                self::WAREHOUSE_ID,
+                [
+                    'id',
+                    'variationId',
+                    'warehouseId',
+                    'quantity',
+                    'reason',
+                    'processRowId',
+                    'processRowType'
+                ],
+                1,
+                50
+            )->getResult();
+            $stockRepository->clearFilters();
+        } catch (\Throwable $exception) {
+            $stockRepository->clearFilters();
+            throw new RuntimeException(
+                'Vorhandene Ausbuchungen der Variante ' . $variationId
+                . ' fuer Retoure ' . $orderId . ' konnten nicht geprueft werden: '
+                . $exception->getMessage()
+            );
+        }
+
+        $bookedQuantity = 0.0;
+        foreach ($movements as $movement) {
+            if ((int) $movement->variationId !== $variationId
+                || (int) $movement->warehouseId !== self::WAREHOUSE_ID
+                || (int) $movement->processRowType !== 2
+                || (int) $movement->processRowId !== $orderId
+                || (int) $movement->reason !== self::REASON_ID_DEFECT
+            ) {
+                continue;
+            }
+
+            $bookedQuantity += abs((float) $movement->quantity);
+        }
+
+        return $bookedQuantity >= $requiredQuantity;
+    }
+
     private function bookVariation(
         int $orderId,
         array $bookingPlan,
@@ -273,7 +303,7 @@ class BookDefectiveReturnStockFlowAction extends StepActionDefinitionContract
         }
     }
 
-    private function getBookingMetadata($order, int $orderId): array
+    private function getBookingMetadata($order): array
     {
         $deliveredAt = Carbon::now()->toW3cString();
 
@@ -320,29 +350,6 @@ class BookDefectiveReturnStockFlowAction extends StepActionDefinitionContract
             'currency' => $currency,
             'exchangeRate' => $exchangeRate
         ];
-    }
-
-    private function getCommentTexts($order): array
-    {
-        $commentTexts = [];
-        if ($order->comments === null) {
-            return $commentTexts;
-        }
-
-        foreach ($order->comments as $comment) {
-            $commentTexts[] = (string) $comment->text;
-        }
-
-        return $commentTexts;
-    }
-
-    private function getVariationMarker(
-        int $orderId,
-        int $variationId,
-        float $quantity
-    ): string {
-        return self::MARKER_PREFIX . 'POSITION:' . $orderId . ':'
-            . $variationId . ':' . (string) $quantity;
     }
 
     public function validateConfigFields(array $configFields): void
