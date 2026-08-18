@@ -1,6 +1,6 @@
 # DefectiveReturnStock
 
-Aktuelle Version: `1.7.5`
+Aktuelle Version: `1.7.6`
 
 PlentyONE-Backend-Plugin für eine Flow-Aktion, die eine bereits automatisch
 eingebuchte defekte Retoure wieder aus dem Bestand entfernt.
@@ -9,7 +9,7 @@ eingebuchte defekte Retoure wieder aus dem Bestand entfernt.
 
 - Die Aktion verarbeitet ausschließlich Retouren.
 - Die Ausbuchung erfolgt direkt über die Varianten-Bestandsfunktion in Lager
-  `1`. Vor und nach dem Buchungsaufruf wird der physische Lagerbestand geprüft.
+  `1`. Vor und nach dem Buchungsaufruf wird der physische Aggregatbestand des Lagers über die Lagerbestands-Schnittstelle geprüft.
 - Der Plenty-Bestandsbuchung werden alle Pflichtangaben übergeben:
   Buchungszeitpunkt, Währung, Wechselkurs, Auftragsnummer, Menge und Grund.
 - Der Buchungszeitpunkt wird unmittelbar vor der Ausbuchung im von Plenty
