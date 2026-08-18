@@ -254,6 +254,7 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
                 || (int) $movement->processRowType !== 2
                 || (int) $movement->processRowId !== $orderId
                 || (int) $movement->reason !== self::REASON_ID_DEFECT
+                || (float) $movement->quantity >= 0
             ) {
                 continue;
             }
