@@ -4,6 +4,6 @@
   "namespace": "DefectiveReturnStock",
   "author": "Custom",
   "type": "general",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "serviceProvider": "DefectiveReturnStock\\Providers\\DefectiveReturnStockServiceProvider"
 }
