@@ -1,6 +1,6 @@
 # DefectiveReturnStock
 
-Aktuelle Version: `1.7.4`
+Aktuelle Version: `1.7.5`
 
 PlentyONE-Backend-Plugin für eine Flow-Aktion, die eine bereits automatisch
 eingebuchte defekte Retoure wieder aus dem Bestand entfernt.
@@ -8,8 +8,8 @@ eingebuchte defekte Retoure wieder aus dem Bestand entfernt.
 ## Technisches Verhalten
 
 - Die Aktion verarbeitet ausschließlich Retouren.
-- Die Ausbuchung erfolgt ohne fehleranfällige Bestandsvorabfrage direkt über
-  die Varianten-Bestandsfunktion in Lager `1`.
+- Die Ausbuchung erfolgt direkt über die Varianten-Bestandsfunktion in Lager
+  `1`. Vor und nach dem Buchungsaufruf wird der physische Lagerbestand geprüft.
 - Der Plenty-Bestandsbuchung werden alle Pflichtangaben übergeben:
   Buchungszeitpunkt, Währung, Wechselkurs, Auftragsnummer, Menge und Grund.
 - Der Buchungszeitpunkt wird unmittelbar vor der Ausbuchung im von Plenty
@@ -21,10 +21,12 @@ eingebuchte defekte Retoure wieder aus dem Bestand entfernt.
   Set-Hauptpositionen werden nicht an die Bestandsfunktion gesendet.
 - Vor jeder Ausbuchung prüft das Plugin die tatsächlichen Warenbewegungen auf
   eine bereits vorhandene Ausbuchung mit derselben Retouren-ID, Variante und
-  dem Grund `207`. Dabei werden ausschließlich negative Warenbewegungen als
-  vorhandene Ausbuchungen gewertet. Positive Retouren-Einbuchungen lösen die
-  Ausbuchung weiterhin aus. Dadurch wird eine doppelte Ausbuchung verhindert,
-  ohne eine Auftragsnotiz anlegen zu müssen.
+  dem Grund `207`. Positive Retouren-Einbuchungen werden nicht als erfolgreiche
+  Ausbuchung behandelt. Wird bereits eine Ausbuchungsbewegung gefunden, nennt
+  der Flow Tracker die betroffene Variante ausdrücklich.
+- Die Aktion endet nur erfolgreich, wenn Plenty nach dem Buchungsaufruf einen
+  um die Retourenmenge verminderten physischen Bestand zurückliefert. Ein
+  unveränderter Bestand erzeugt eine konkrete Meldung mit Vorher-/Nachher-Wert.
 
 ## Einrichtung
 
@@ -49,4 +51,5 @@ Es gibt keine Plugin-Konfiguration für Lager oder Lagerort. Das Lager ist auf
 Für einen erneuten Test ist kein neuer Auftrag und keine neue Retoure nötig.
 Eine vorhandene defekte Retoure kann den Flow erneut durchlaufen. Bereits
 erfolgreich ausgeführte Positionen werden anhand ihrer Warenbewegungen erkannt
-und übersprungen.
+und im Flow Tracker eindeutig gemeldet. Für die Prüfung muss kein neuer Auftrag
+und keine neue Gutschrift erstellt werden.
