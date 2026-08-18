@@ -1,6 +1,6 @@
 # DefectiveReturnStock
 
-Aktuelle Version: `1.7.2`
+Aktuelle Version: `1.7.3`
 
 PlentyONE-Backend-Plugin für eine Flow-Aktion, die eine bereits automatisch
 eingebuchte defekte Retoure wieder aus dem Bestand entfernt.
@@ -26,9 +26,12 @@ eingebuchte defekte Retoure wieder aus dem Bestand entfernt.
 
 ## Einrichtung
 
+Die V3 besitzt die neue technische Kennung `DefectiveReturnStock::book-out-v3`, damit Plenty keine alte Flow-Beschreibung aus dem Cache verwendet.
+
+
 1. Das Plugin dem Plugin-Set hinzufügen und bereitstellen.
 2. Im Flow Studio die bestehende Aktion
-   `Defekte Retoure aus Lagerort ausbuchen (V2)` im Zweig für defekte Retouren
+   `Defekte Retoure aus Lagerort ausbuchen (V3)` im Zweig für defekte Retouren
    verwenden.
 3. Die Aktion muss nach dem Schritt stehen, der die Retoure erstellt und den
    automatisch zurückgebuchten Bestand verfügbar gemacht hat.
