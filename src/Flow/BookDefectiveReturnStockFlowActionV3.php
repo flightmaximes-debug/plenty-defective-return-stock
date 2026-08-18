@@ -282,13 +282,18 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
         $variationId = (int) $bookingPlan['variationId'];
         $quantity = (float) $bookingPlan['quantity'];
         $bookingData = [
-            'variationId' => $variationId,
-            'deliveredAt' => $bookingMetadata['deliveredAt'],
-            'orderNumber' => (string) $orderId,
-            'currency' => $bookingMetadata['currency'],
-            'exchangeRate' => $bookingMetadata['exchangeRate'],
-            'quantity' => $quantity,
-            'reasonId' => self::REASON_ID_DEFECT
+            'outgoingItems' => [
+                [
+                    'variationId' => $variationId,
+                    'warehouseId' => self::WAREHOUSE_ID,
+                    'deliveredAt' => $bookingMetadata['deliveredAt'],
+                    'orderNumber' => (string) $orderId,
+                    'currency' => $bookingMetadata['currency'],
+                    'exchangeRate' => $bookingMetadata['exchangeRate'],
+                    'quantity' => $quantity,
+                    'reasonId' => self::REASON_ID_DEFECT
+                ]
+            ]
         ];
 
         try {
