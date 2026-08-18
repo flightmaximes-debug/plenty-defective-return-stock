@@ -57,7 +57,7 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
 
     public function getDescription(): string
     {
-        return 'V3: Bucht die Retourenmenge aus dem Standard-Lagerort in Lager 1 aus und verhindert Doppelbuchungen.';
+        return 'V3: Bucht die Retourenmenge aus Lager 1 aus und prueft die physische Bestandsminderung.';
     }
 
     public function getUIConfigFields(): array
@@ -143,6 +143,7 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
             }
 
             $bookingPlans = [];
+            $alreadyBookedDescriptions = [];
             $bookingMetadata = $this->getBookingMetadata($order);
             foreach ($variationQuantities as $variationId => $requiredQuantity) {
                 if ($this->hasExistingBooking(
@@ -151,6 +152,8 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
                     (float) $requiredQuantity,
                     $stockRepository
                 )) {
+                    $alreadyBookedDescriptions[] = 'Variante ' . (int) $variationId
+                        . ' mit Menge ' . (float) $requiredQuantity;
                     continue;
                 }
 
@@ -158,6 +161,14 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
                     'variationId' => (int) $variationId,
                     'quantity' => (float) $requiredQuantity
                 ];
+            }
+
+            if (count($bookingPlans) === 0) {
+                throw new RuntimeException(
+                    'Keine neue Ausbuchung ausgefuehrt: Fuer Retoure ' . $orderId
+                    . ' wurde bereits eine Ausbuchungsbewegung mit Grund 207 gefunden ('
+                    . implode(', ', $alreadyBookedDescriptions) . ').'
+                );
             }
 
             foreach ($bookingPlans as $bookingPlan) {
@@ -284,10 +295,34 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
         ];
 
         try {
-            $variationStockRepository->bookOutgoingItems(
+            $stockBefore = $this->getPhysicalStock(
+                $variationId,
+                $variationStockRepository->listStockByWarehouse(
+                    $variationId,
+                    [],
+                    1,
+                    200
+                )
+            );
+
+            $updatedStocks = $variationStockRepository->bookOutgoingItems(
                 $variationId,
                 $bookingData
             );
+
+            $stockAfter = $this->getPhysicalStock(
+                $variationId,
+                $updatedStocks
+            );
+            $expectedMaximum = $stockBefore - $quantity + 0.00001;
+            if ($stockAfter > $expectedMaximum) {
+                throw new RuntimeException(
+                    'Plenty hat keine Bestandsminderung bestaetigt. Variante '
+                    . $variationId . ', Lager 1: vorher ' . $stockBefore
+                    . ', nachher ' . $stockAfter . ', erwartet hoechstens '
+                    . ($stockBefore - $quantity) . '.'
+                );
+            }
         } catch (ValidationException $exception) {
             $validationMessages = $exception->getMessageBag()->all();
             throw new RuntimeException(
@@ -302,6 +337,24 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
                 . $exception->getMessage()
             );
         }
+    }
+
+    private function getPhysicalStock(int $variationId, array $stocks): float
+    {
+        foreach ($stocks as $stock) {
+            if ((int) $stock->variationId !== $variationId
+                || (int) $stock->warehouseId !== self::WAREHOUSE_ID
+            ) {
+                continue;
+            }
+
+            return (float) $stock->physicalStock;
+        }
+
+        throw new RuntimeException(
+            'Plenty hat fuer Variante ' . $variationId
+            . ' keinen auswertbaren physischen Bestand in Lager 1 geliefert.'
+        );
     }
 
     private function getBookingMetadata($order): array
