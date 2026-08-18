@@ -176,7 +176,8 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
                     $orderId,
                     $bookingPlan,
                     $bookingMetadata,
-                    $variationStockRepository
+                    $variationStockRepository,
+                    $stockRepository
                 );
             }
 
@@ -280,7 +281,8 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
         int $orderId,
         array $bookingPlan,
         array $bookingMetadata,
-        VariationStockRepositoryContract $variationStockRepository
+        VariationStockRepositoryContract $variationStockRepository,
+        StockRepositoryContract $stockRepository
     ): void {
         $variationId = (int) $bookingPlan['variationId'];
         $quantity = (float) $bookingPlan['quantity'];
@@ -295,24 +297,19 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
         ];
 
         try {
-            $stockBefore = $this->getPhysicalStock(
+            $stockBefore = $this->readPhysicalStock(
                 $variationId,
-                $variationStockRepository->listStockByWarehouse(
-                    $variationId,
-                    [],
-                    1,
-                    200
-                )
+                $stockRepository
             );
 
-            $updatedStocks = $variationStockRepository->bookOutgoingItems(
+            $variationStockRepository->bookOutgoingItems(
                 $variationId,
                 $bookingData
             );
 
-            $stockAfter = $this->getPhysicalStock(
+            $stockAfter = $this->readPhysicalStock(
                 $variationId,
-                $updatedStocks
+                $stockRepository
             );
             $expectedMaximum = $stockBefore - $quantity + 0.00001;
             if ($stockAfter > $expectedMaximum) {
@@ -339,8 +336,34 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
         }
     }
 
-    private function getPhysicalStock(int $variationId, array $stocks): float
-    {
+    private function readPhysicalStock(
+        int $variationId,
+        StockRepositoryContract $stockRepository
+    ): float {
+        try {
+            $stockRepository->setFilters([
+                'variationId' => $variationId
+            ]);
+            $stocks = $stockRepository->listStockByWarehouseId(
+                self::WAREHOUSE_ID,
+                [
+                    'variationId',
+                    'warehouseId',
+                    'stockPhysical'
+                ],
+                1,
+                50
+            )->getResult();
+            $stockRepository->clearFilters();
+        } catch (\Throwable $exception) {
+            $stockRepository->clearFilters();
+            throw new RuntimeException(
+                'Der physische Bestand der Variante ' . $variationId
+                . ' in Lager 1 konnte nicht gelesen werden: '
+                . $exception->getMessage()
+            );
+        }
+
         foreach ($stocks as $stock) {
             if ((int) $stock->variationId !== $variationId
                 || (int) $stock->warehouseId !== self::WAREHOUSE_ID
@@ -348,12 +371,12 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
                 continue;
             }
 
-            return (float) $stock->physicalStock;
+            return (float) $stock->stockPhysical;
         }
 
         throw new RuntimeException(
             'Plenty hat fuer Variante ' . $variationId
-            . ' keinen auswertbaren physischen Bestand in Lager 1 geliefert.'
+            . ' keinen Aggregatbestand in Lager 1 geliefert.'
         );
     }
 
