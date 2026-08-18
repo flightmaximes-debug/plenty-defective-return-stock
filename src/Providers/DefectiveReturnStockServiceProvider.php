@@ -2,7 +2,7 @@
 
 namespace DefectiveReturnStock\Providers;
 
-use DefectiveReturnStock\Flow\BookDefectiveReturnStockFlowAction;
+use DefectiveReturnStock\Flow\BookDefectiveReturnStockFlowActionV3;
 use Plenty\Modules\Flow\Services\StepActionRegistrationService;
 use Plenty\Plugin\ServiceProvider;
 
@@ -15,7 +15,7 @@ class DefectiveReturnStockServiceProvider extends ServiceProvider
     public function boot(StepActionRegistrationService $registrationService)
     {
         $registrationService->registerAction(
-            pluginApp(BookDefectiveReturnStockFlowAction::class)
+            pluginApp(BookDefectiveReturnStockFlowActionV3::class)
         );
     }
 }
