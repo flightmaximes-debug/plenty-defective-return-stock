@@ -19,6 +19,7 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
     private const ORDER_ITEM_TYPE_BUNDLE_COMPONENT = 3;
     private const ORDER_ITEM_TYPE_SET_COMPONENT = 14;
     private const WAREHOUSE_ID = 1;
+    private const STORAGE_LOCATION_ID = 0;
     private const REASON_ID_DEFECT = 207;
 
     private $flowName = '';
@@ -57,7 +58,7 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
 
     public function getDescription(): string
     {
-        return 'V3: Bucht die Retourenmenge ueber die variantenbezogene Bestands-Schnittstelle aus Lager 1 aus und prueft die physische Bestandsminderung.';
+        return 'V3: Bucht die Retourenmenge mit negativer Menge aus Lager 1 und dem Standard-Lagerort 0 aus und prueft die physische Bestandsminderung.';
     }
 
     public function getUIConfigFields(): array
@@ -288,11 +289,12 @@ class BookDefectiveReturnStockFlowActionV3 extends StepActionDefinitionContract
         $quantity = (float) $bookingPlan['quantity'];
         $bookingData = [
             'warehouseId' => self::WAREHOUSE_ID,
+            'storageLocationId' => self::STORAGE_LOCATION_ID,
             'deliveredAt' => $bookingMetadata['deliveredAt'],
             'orderNumber' => (string) $orderId,
             'currency' => $bookingMetadata['currency'],
             'exchangeRate' => $bookingMetadata['exchangeRate'],
-            'quantity' => $quantity,
+            'quantity' => 0.0 - $quantity,
             'reasonId' => self::REASON_ID_DEFECT
         ];
 
